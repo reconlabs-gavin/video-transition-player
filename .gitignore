@@ -23,5 +23,5 @@ Thumbs.db
 .env.*
 
 # Media files in videos (keep folder)
-videos/*
+# videos/*
 !videos/.gitkeep
