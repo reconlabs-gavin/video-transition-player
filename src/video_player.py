@@ -15,6 +15,12 @@ class VideoPlayer:
         # 기본 전환 효과 (slide). 필요시 다른 효과로 교체 가능
         self.transition = create_transition('slide', direction='down')
         
+        # 마우스 드래그 상태
+        self.mouse_down = False
+        self.mouse_start_y = 0
+        self.swipe_threshold = 100  # 스와이프 감지 최소 거리 (픽셀)
+        self.swipe_action = None  # 'next', 'prev', or None
+        
     def load_videos(self):
         """videos 폴더에서 동영상 파일 로드"""
         # 지원 확장자에 mp3 추가 (오디오 파일은 아래 검사에서 자동 제외)
@@ -142,6 +148,25 @@ class VideoPlayer:
         
         return frame
     
+    def mouse_callback(self, event, x, y, flags, param):
+        """마우스 드래그 스와이프 처리"""
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.mouse_down = True
+            self.mouse_start_y = y
+            self.swipe_action = None
+        
+        elif event == cv2.EVENT_LBUTTONUP:
+            if self.mouse_down:
+                delta_y = y - self.mouse_start_y
+                if abs(delta_y) >= self.swipe_threshold:
+                    if delta_y < 0:
+                        # 드래그 위로 → 다음 영상
+                        self.swipe_action = 'next'
+                    else:
+                        # 드래그 아래로 → 이전 영상
+                        self.swipe_action = 'prev'
+            self.mouse_down = False
+    
     def play(self):
         """비디오 재생 메인 루프"""
         if not self.videos:
@@ -160,6 +185,8 @@ class VideoPlayer:
         print("조작법:")
         print("  ↑ / W    : 이전 영상")
         print("  ↓ / S    : 다음 영상")
+        print("  마우스 드래그 ↑ : 다음 영상")
+        print("  마우스 드래그 ↓ : 이전 영상")
         print("  Space    : 일시정지/재생")
         print("  H        : UI 표시/숨김")
         print("  Q        : 종료")
@@ -176,9 +203,12 @@ class VideoPlayer:
         window_name = 'Video Player'
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(window_name, self.display_size[0], self.display_size[1])
+        # 마우스 콜백 등록
+        cv2.setMouseCallback(window_name, self.mouse_callback)
         # 창을 최상위로 설정 (포커스 문제 해결)
         cv2.setWindowProperty(window_name, cv2.WND_PROP_TOPMOST, 1)
         print("⚠️  OpenCV 창을 클릭하여 포커스를 맞춘 후 키를 눌러주세요!\n")
+        print("🖱️  마우스 드래그로도 영상 전환이 가능합니다!\n")
         
         paused = False
         
@@ -209,6 +239,28 @@ class VideoPlayer:
             # 키 입력 대기 (특수키 포함)
             wait_time = 1 if paused else int(1000 / fps)
             key = cv2.waitKeyEx(wait_time)
+            
+            # 마우스 스와이프 처리
+            if self.swipe_action == 'next':
+                next_index = (self.current_index + 1) % len(self.videos)
+                self.transition_to_video(cap, next_index, 'down')
+                cap.release()
+                cap = cv2.VideoCapture(self.videos[next_index])
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                self.current_index = next_index
+                paused = False
+                print(f"🖱️ → {os.path.basename(self.videos[self.current_index])}")
+                self.swipe_action = None
+            elif self.swipe_action == 'prev':
+                prev_index = (self.current_index - 1) % len(self.videos)
+                self.transition_to_video(cap, prev_index, 'up')
+                cap.release()
+                cap = cv2.VideoCapture(self.videos[prev_index])
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                self.current_index = prev_index
+                paused = False
+                print(f"🖱️ ← {os.path.basename(self.videos[self.current_index])}")
+                self.swipe_action = None
             
             # 디버깅 - 키 코드 출력 (원본과 마스킹 버전 모두)
             if key != -1 and key != 255:
