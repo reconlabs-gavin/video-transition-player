@@ -243,8 +243,8 @@ class VideoPlayer:
         cv2.setMouseCallback(window_name, self.mouse_callback)
         # 창을 최상위로 설정 (포커스 문제 해결)
         cv2.setWindowProperty(window_name, cv2.WND_PROP_TOPMOST, 1)
-        print("⚠️  OpenCV 창을 클릭하여 포커스를 맞춘 후 키를 눌러주세요!\n")
-        print("🖱️  마우스 드래그로도 영상 전환이 가능합니다!\n")
+        print("[!] OpenCV 창을 클릭하여 포커스를 맞춘 후 키를 눌러주세요!\n")
+        print("[*] 마우스 드래그로도 영상 전환이 가능합니다!\n")
         
         paused = False
         
@@ -285,7 +285,7 @@ class VideoPlayer:
                 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                 self.current_index = next_index
                 paused = False
-                print(f"🖱️ → {os.path.basename(self.videos[self.current_index])}")
+                print(f"[Swipe] -> {os.path.basename(self.videos[self.current_index])}")
                 self.swipe_action = None
             elif self.swipe_action == 'prev':
                 prev_index = (self.current_index - 1) % len(self.videos)
@@ -295,7 +295,7 @@ class VideoPlayer:
                 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                 self.current_index = prev_index
                 paused = False
-                print(f"🖱️ ← {os.path.basename(self.videos[self.current_index])}")
+                print(f"[Swipe] <- {os.path.basename(self.videos[self.current_index])}")
                 self.swipe_action = None
             
             # 카테고리 버튼 클릭 처리
@@ -307,9 +307,9 @@ class VideoPlayer:
                 if self.videos:
                     cap = cv2.VideoCapture(self.videos[0])
                     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                    print(f"📂 카테고리 변경: {self.categories[self.current_category][1]}")
+                    print(f"[Category] {self.categories[self.current_category][1]}")
                 else:
-                    print(f"⚠️ {self.categories[self.current_category][1]} 폴더에 영상이 없습니다!")
+                    print(f"[!] {self.categories[self.current_category][1]} 폴더에 영상이 없습니다!")
                 self.button_clicked = None
                 paused = False
             
@@ -348,7 +348,7 @@ class VideoPlayer:
             # 일시정지/재생
             elif key in (32, ord(' ')):  # Space
                 paused = not paused
-                print("⏸ 일시정지" if paused else "▶ 재생")
+                print("|| Paused" if paused else "> Playing")
             
             # UI 토글
             elif key in (ord('h'), ord('H')):
