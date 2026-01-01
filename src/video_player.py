@@ -7,6 +7,15 @@ from transitions import create_transition
 class VideoPlayer:
     def __init__(self, video_folder='videos'):
         self.video_folder = video_folder
+        
+        # 카테고리 설정 (폴더명, 표시이름)
+        self.categories = [
+            ('시연디스플레이', 'DEMO'),
+            ('신동디스플레이', 'SD'),
+        ]
+        self.current_category = 0
+        self.category_buttons = []  # [(x1, y1, x2, y2), ...] 버튼 영역
+        
         self.videos = self.load_videos()
         self.current_index = 0
         self.transition_frames = 20  # 전환 프레임 수
@@ -20,12 +29,18 @@ class VideoPlayer:
         self.mouse_start_y = 0
         self.swipe_threshold = 100  # 스와이프 감지 최소 거리 (픽셀)
         self.swipe_action = None  # 'next', 'prev', or None
+        self.button_clicked = None  # 클릭된 카테고리 버튼 인덱스
+        self.mouse_start_x = 0
         
     def load_videos(self):
-        """videos 폴더에서 동영상 파일 로드"""
-        # 지원 확장자에 mp3 추가 (오디오 파일은 아래 검사에서 자동 제외)
-        video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.mp3']
-        candidates = [str(f) for f in Path(self.video_folder).glob('*')
+        """현재 카테고리 폴더에서 동영상 파일 로드"""
+        # 현재 카테고리 폴더 경로
+        category_folder = self.categories[self.current_category][0]
+        search_path = os.path.join(self.video_folder, category_folder)
+        
+        # 지원 확장자
+        video_extensions = ['.mp4', '.avi', '.mov', '.mkv']
+        candidates = [str(f) for f in Path(search_path).glob('*')
                       if f.suffix.lower() in video_extensions]
 
         # OpenCV로 실제 재생 가능한 비디오만 필터링
@@ -93,23 +108,50 @@ class VideoPlayer:
         # 블렌딩
         frame = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
         
-        # 상단: 영상 이름
+        # 상단: 영상 번호만 표시
         font = cv2.FONT_HERSHEY_SIMPLEX
-        video_name_short = os.path.basename(video_name)
-        if len(video_name_short) > 40:
-            video_name_short = video_name_short[:37] + "..."
-        
-        cv2.putText(frame, video_name_short, (20, 40), 
-                   font, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
         
         # 영상 번호 표시
         video_info = f"{self.current_index + 1}/{len(self.videos)}"
-        cv2.putText(frame, video_info, (20, 75), 
-                   font, 0.6, (180, 180, 180), 1, cv2.LINE_AA)
+        cv2.putText(frame, video_info, (20, 50), 
+                   font, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+        
+        # 우측 상단: 카테고리 버튼
+        self.category_buttons = []
+        btn_width = 60
+        btn_height = 30
+        btn_gap = 10
+        btn_y = 20
+        btn_x_start = w - (btn_width + btn_gap) * len(self.categories) - 10
+        
+        for i, (folder_name, display_name) in enumerate(self.categories):
+            btn_x = btn_x_start + i * (btn_width + btn_gap)
+            
+            # 버튼 영역 저장
+            self.category_buttons.append((btn_x, btn_y, btn_x + btn_width, btn_y + btn_height))
+            
+            # 버튼 배경 (선택된 경우 흰색, 아닌 경우 회색)
+            if i == self.current_category:
+                cv2.rectangle(frame, (btn_x, btn_y), (btn_x + btn_width, btn_y + btn_height), 
+                             (255, 255, 255), -1)
+                text_color = (0, 0, 0)
+            else:
+                cv2.rectangle(frame, (btn_x, btn_y), (btn_x + btn_width, btn_y + btn_height), 
+                             (80, 80, 80), -1)
+                cv2.rectangle(frame, (btn_x, btn_y), (btn_x + btn_width, btn_y + btn_height), 
+                             (150, 150, 150), 1)
+                text_color = (200, 200, 200)
+            
+            # 버튼 텍스트 (중앙 정렬)
+            text_size = cv2.getTextSize(display_name, font, 0.5, 1)[0]
+            text_x = btn_x + (btn_width - text_size[0]) // 2
+            text_y = btn_y + (btn_height + text_size[1]) // 2
+            cv2.putText(frame, display_name, (text_x, text_y), 
+                       font, 0.5, text_color, 1, cv2.LINE_AA)
         
         # 진행도 바
         progress = current_frame / max(total_frames, 1)
-        bar_y = h - 90
+        bar_y = h - 50
         bar_width = w - 40
         bar_height = 8
         
@@ -126,39 +168,33 @@ class VideoPlayer:
         # 시간 표시
         current_time = current_frame / max(total_frames, 1) * (total_frames / 30)  # 대략적인 시간
         time_text = f"{int(current_time)}s"
-        cv2.putText(frame, time_text, (w - 100, bar_y + bar_height + 25), 
+        cv2.putText(frame, time_text, (w - 60, bar_y - 10), 
                    font, 0.5, (180, 180, 180), 1, cv2.LINE_AA)
-        
-        # 하단: 조작 힌트
-        hints = [
-            ("↑/W", "이전"),
-            ("↓/S", "다음"),
-            ("Space", "일시정지"),
-            ("H", "UI 숨김"),
-            ("Q", "종료")
-        ]
-        
-        x_start = 20
-        y_pos = h - 40
-        for key, action in hints:
-            text = f"{key}: {action}"
-            cv2.putText(frame, text, (x_start, y_pos), 
-                       font, 0.45, (200, 200, 200), 1, cv2.LINE_AA)
-            x_start += 130
         
         return frame
     
     def mouse_callback(self, event, x, y, flags, param):
-        """마우스 드래그 스와이프 처리"""
+        """마우스 드래그 스와이프 및 버튼 클릭 처리"""
         if event == cv2.EVENT_LBUTTONDOWN:
             self.mouse_down = True
             self.mouse_start_y = y
+            self.mouse_start_x = x
             self.swipe_action = None
         
         elif event == cv2.EVENT_LBUTTONUP:
             if self.mouse_down:
                 delta_y = y - self.mouse_start_y
-                if abs(delta_y) >= self.swipe_threshold:
+                delta_x = abs(x - self.mouse_start_x)
+                
+                # 버튼 클릭 감지 (움직임이 작은 경우)
+                if abs(delta_y) < 20 and delta_x < 20:
+                    for i, (x1, y1, x2, y2) in enumerate(self.category_buttons):
+                        if x1 <= x <= x2 and y1 <= y <= y2:
+                            if i != self.current_category:
+                                self.button_clicked = i
+                            break
+                # 스와이프 감지
+                elif abs(delta_y) >= self.swipe_threshold:
                     if delta_y < 0:
                         # 드래그 위로 → 다음 영상
                         self.swipe_action = 'next'
@@ -261,6 +297,21 @@ class VideoPlayer:
                 paused = False
                 print(f"🖱️ ← {os.path.basename(self.videos[self.current_index])}")
                 self.swipe_action = None
+            
+            # 카테고리 버튼 클릭 처리
+            if self.button_clicked is not None:
+                self.current_category = self.button_clicked
+                self.videos = self.load_videos()
+                self.current_index = 0
+                cap.release()
+                if self.videos:
+                    cap = cv2.VideoCapture(self.videos[0])
+                    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    print(f"📂 카테고리 변경: {self.categories[self.current_category][1]}")
+                else:
+                    print(f"⚠️ {self.categories[self.current_category][1]} 폴더에 영상이 없습니다!")
+                self.button_clicked = None
+                paused = False
             
             # 디버깅 - 키 코드 출력 (원본과 마스킹 버전 모두)
             if key != -1 and key != 255:
