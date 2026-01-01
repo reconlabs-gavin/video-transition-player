@@ -249,6 +249,11 @@ class VideoPlayer:
         paused = False
         
         while True:
+            # 창이 닫혔는지 확인 (X 버튼 클릭 감지)
+            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                print("\n프로그램 종료")
+                break
+            
             if not paused:
                 ret, frame = cap.read()
                 
