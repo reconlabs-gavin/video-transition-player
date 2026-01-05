@@ -196,11 +196,11 @@ class VideoPlayer:
                 # 스와이프 감지
                 elif abs(delta_y) >= self.swipe_threshold:
                     if delta_y < 0:
-                        # 드래그 위로 → 다음 영상
-                        self.swipe_action = 'next'
-                    else:
-                        # 드래그 아래로 → 이전 영상
+                        # 드래그 위로 → 이전 영상
                         self.swipe_action = 'prev'
+                    else:
+                        # 드래그 아래로 → 다음 영상
+                        self.swipe_action = 'next'
             self.mouse_down = False
     
     def play(self):
@@ -221,8 +221,8 @@ class VideoPlayer:
         print("조작법:")
         print("  ↑ / W    : 이전 영상")
         print("  ↓ / S    : 다음 영상")
-        print("  마우스 드래그 ↑ : 다음 영상")
-        print("  마우스 드래그 ↓ : 이전 영상")
+        print("  마우스 드래그 ↑ : 이전 영상")
+        print("  마우스 드래그 ↓ : 다음 영상")
         print("  Space    : 일시정지/재생")
         print("  H        : UI 표시/숨김")
         print("  Q        : 종료")
